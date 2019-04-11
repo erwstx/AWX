@@ -1,0 +1,41 @@
+#!/bin/bash
+
+if [ $1 == 'backup' ]
+then
+        docker stop awx_task
+        docker stop postgres
+        docker stop awx_web
+        mkdir -p /root/backups/db 2> /dev/null
+        date=$( date +%m.%d.%y_%H.%M.%S )
+        cp -r /awx/pgdocker/pgdata /root/backups/db/pgdata_$date
+        echo -n "backup created /root/backups/db/pgdata_$date"
+        docker start postgres
+         ## Wait for database to start
+        echo -n "Wating for database to start"
+        sleep 10
+        docker start awx_web
+        docker start $(docker ps -a | grep awx_task | awk '{print $1}')
+
+fi
+
+
+if [ $1 == 'restore' ]
+then
+        if [ $# == 1 ]
+        then
+                echo "You should provide a directory to restore"
+                exit 1
+        fi
+
+        docker stop awx_task
+        docker stop postgres
+        docker stop awx_web
+        mv /awx/pgdocker/pgdata /awx/pgdocker/pgdata_restore_`date +%m.%d.%y_%H.%M.%S`
+        cp -r $2 /awx/pgdocker/pgdata
+        docker start postgres
+        echo -n "Wating for database to start"
+        sleep 10
+        docker start awx_web
+        docker start awx_task
+        echo -n "database restored from $2"
+fi
